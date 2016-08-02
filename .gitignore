@@ -1,0 +1,9 @@
+tags
+*.o
+*.elf
+*.gdb
+*.r
+*.n
+*.s
+*.aot
+

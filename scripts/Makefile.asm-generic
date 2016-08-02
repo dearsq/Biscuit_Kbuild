@@ -1,0 +1,31 @@
+# include/asm-generic contains a lot of files that are used
+# verbatim by several architectures.
+#
+# This Makefile reads the file arch/$(SRCARCH)/include/asm/Kbuild
+# and for each file listed in this file with generic-y creates
+# a small wrapper file in $(obj) (arch/$(SRCARCH)/include/generated/asm)
+
+kbuild-file := $(srctree)/arch/$(SRCARCH)/include/$(src)/Kbuild
+-include $(kbuild-file)
+
+include scripts/Kbuild.include
+
+# Create output directory if not already present
+_dummy := $(shell [ -d $(obj) ] || mkdir -p $(obj))
+
+$(warning _dummy=$(_dummy))
+
+quiet_cmd_wrap = WRAP	$@
+cmd_wrap = echo "\#include <asm-generic/$*.h>" >$@
+
+$(warning quiet_cmd_wrap=$(quiet_cmd_wrap))
+$(warning cmd_wrap=$(cmd_wrap))
+
+all: $(patsubst %, $(obj)/%, $(generic-y))
+	@:
+
+$(obj)/%.h:
+	$(call cmd,wrap)
+
+$(warning obj=$(obj))
+$(warning generic-y=$(generic-y))

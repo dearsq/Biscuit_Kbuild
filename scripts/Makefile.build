@@ -1,0 +1,53 @@
+# =========================================================================
+# Building
+# =========================================================================
+$(warning DEBUG Entry this directory)
+
+src := $(obj)
+
+PHONY := __build
+__build:
+
+# Init all relevant variables used in kbuild files so
+# 1) they have correct type
+# 2) they do not inherit any value from the environment
+obj-y :=
+obj-m :=
+lib-y :=
+lib-m :=
+always :=
+targets :=
+subdir-y :=
+subdir-m :=
+EXTRA_AFLAGS :=
+EXTRA_CFLAGS :=
+EXTRA_CPPFLAGS :=
+EXTRA_LDFLAGS :=
+asflags-y  :=
+ccflags-y  :=
+cppflags-y :=
+ldflags-y  :=
+
+subdir-asflags-y :=
+subdir-ccflags-y :=
+
+# Read auto.conf if it exists,otherwise ignore
+-include include/config/auto.conf
+
+include scripts/Kbuild.include
+
+# For backward compatibility check that these variables do not change
+save-cflags := $(CFLAGS)
+
+# The filename Kbuild has precedence over Makefile
+kbuild-dir := $(if $(filter /%,$(src)),$(src),$(srctree)/$(src))
+kbuild-file := $(if $(wildcard $(kbuild-dir)/Kbuild),$(kbuild-dir)/Kbuild,$(kbuild-dir)/Makefile)
+include $(kbuild-file)
+
+# If the save-* variables changed error out
+ifeq ($(KBUILD_NOPEDANTIC),)
+		ifneq ("$(save-cflags)","$(CFLAGS)")
+				$(error CFLAGS was changed in "$(kbuild-file)". Fix it to use ccflags-y)
+		endif
+endif
+$(warning Leaving...)
