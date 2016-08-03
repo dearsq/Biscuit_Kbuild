@@ -718,11 +718,93 @@ $(warning KCONFIG_CONFIG=$(KCONFIG_CONFIG))
 include/config/%.conf: $(KCONFIG_CONFIG) include/config/auto.conf.cmd
 	$(Q)$(MAKE) -f $(srctree)/Makefile silentoldconfig
 else # KBUILD_EXTMOD
+$(warning Entry this path..........)
+# external modules needs include/generated/autoconf.h and include/config/auto.conf
+# but do not care if they are up-to-date. Use auto.conf to trigger the test
+PHONY += include/config/auto.conf
+
+include/config/auto.conf:
+	$(Q)test -e include/generated/autoconf.h -a -e $@ || (      \
+	echo >&2;              \
+	echo >&2 "	ERROR: Kernel configuration is invalid.";     \
+	echo >&2 "		   include/generated/autoconf.h or $@ are missing.";  \
+	echo >&2 "		   Run 'make oldconfig && make prepare' on kernel src to fix it.";     \
+	echo >&2 ;               \
+	/bin/false)
 
 endif # KBUILD_EXTMOD
-$(warning End of KBUILD_EXTMOD)
 
+else
+$(warning Entry the path....................)
+# Dummy target needed, because used as prerequisite
+include/config/auto.conf: ;
+$(warning End of KBUILD_EXTMOD)
 endif # dot-config
+
+# The all: target is the default when no target is given on the 
+# command line.
+# This allow a user to issue only 'make' to build a kernel including modules
+# Defaults to vmlinux, but the arch makefile usually adds further targets
+all: vmlinux
+
+# The arch Makefile can set ARCH_{CPP,A,C}FLAGS to override the default
+# values of the respective KBUILD_* variables
+ARCH_CPPFLAGS :=
+ARCH_AFLAGS :=
+ARCH_CFLAGS :=
+include arch/$(SRCARCH)/Makefile
+
+KBUILD_CFLAGS += $(call cc-option,-fno-delete-null-pointer-checks,)
+$(warning KBUILD_CFLAGS=$(KBUILD_CFLAGS))
+
+ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
+KBUILD_CFLAGS	+= -Os $(call cc-disable-warning,maybe-uninitialzied,)
+else
+KBUILD_CFLAGS	+= -O2
+endif
+
+# Tell gcc to never replace conditional load with a non-conditional one
+KBUILD_CFLAGS	+= $(call cc-option,--param=alloc-store-data-reaces=0)
+$(warning KBUILD_CFLAGS=$(KBUILD_CFLAGS))
+
+ifdef CONFIG_READABLE_ASM
+# Disable optimizations that make assembler listings hard to read.
+# reorder blocks reorders the control in the function
+# ipa clone creates specialized cloned functions
+# partial inlining inlines only parts of functions
+KBUILD_CFLAGS += $(call cc-option,-fno-reorder-blocks,) \
+				 $(call cc-option,-fno-ipa-cp-clone,)  \
+				 $(call cc-option,-fno-partial-inlining)
+$(warning KBUILD_CFLAGS=$(KBUILD_CFLAGS))
+endif
+
+ifneq ($(CONFIG_FRAME_WARN),0)
+KBUILD_CFLAGS += $(call cc-option,-Wframe-larger-than=${CONFIG_FRAME_WARN})
+$(warning KBUILD_CFLAGS=$(KBUILD_CFLAGS))
+endif
+
+# Handle stack protector mode.
+# Since kbuild can potentially perform two passes (first with the old
+# .config value and then with update .config values), we cannot error out
+# if a desired compiler option is unsupported. If we were to error, kbuild
+# could never get to the second pass and actually notice that we changed
+# the option to someting that was supported.
+#
+# Additionlly, we don't want to fallback and/or silently change which compiler
+# flags will be used, since that leads to producing kernel with different
+# security feature characteristics depending on the compiler used. ("But I
+# selected CC_STACKPROTECTOR_STRONG! Why did it build with _REGULAR?!")
+#
+# The middle ground is to warn here so that the failed option is obvious, but
+# to let the build fail with bad compiler flags so that we can't produce a 
+# kernel when there is a CONFIG  and compiler mismatch.
+#
+ifdef CONFIG_CC_STACKPROTECTOR_REGULAR
+   
+endif
+
+$(warning KBUILD_CFLAGS=$(KBUILD_CFLAGS))
+
 $(warning End of dot-config)
 
 endif # config-targets
